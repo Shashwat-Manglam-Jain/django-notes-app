@@ -1,0 +1,54 @@
+name: Django CD Docker
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./notes
+          file: ./notes/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/django-notes-backend:latest
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/django-notes-frontend:latest
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            docker pull ${{ secrets.DOCKER_USERNAME }}/django-notes-backend:latest
+            docker pull ${{ secrets.DOCKER_USERNAME }}/django-notes-frontend:latest
+
+            docker stop django-notes-backend || true
+            docker rm django-notes-backend || true
+            docker stop django-notes-frontend || true
+            docker rm django-notes-frontend || true
+
+            docker run -d --name django-notes-backend -p 8000:8000 ${{ secrets.DOCKER_USERNAME }}/django-notes-backend:latest
+            docker run -d --name django-notes-frontend -p 3000:3000 ${{ secrets.DOCKER_USERNAME }}/django-notes-frontend:latest

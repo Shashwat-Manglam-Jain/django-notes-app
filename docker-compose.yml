@@ -1,0 +1,14 @@
+services:
+  backend:
+    build: ./notes
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./notes/db.sqlite3:/app/db.sqlite3
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
